@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Cuota Mensual de Socios</title>
+    <!-- Carga de Tailwind CSS para un diseño moderno y responsivo --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuración de fuente Inter para un look limpio */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* Estilo para el fondo del formulario */
+        .card-bg {
+            background-color: #ffffff;
+        }
+        /* Animación de carga para el botón */
+        .spinner {
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1d4ed8',
+                        secondary: '#3b82f6',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Contenedor Principal del Formulario --><div class="w-full max-w-lg card-bg p-6 sm:p-10 rounded-xl shadow-2xl transition-all duration-300">
+        <!-- LOGO ACTUALIZADO -->
+        <div class="flex justify-center mb-6">
+            <a href="https://imgbb.com/">
+                <img src="https://i.ibb.co/cn7d3rJ/Gemini-Generated-Image-elm44qelm44qelm4.png" 
+                     alt="Logo de la Aplicación" 
+                     class="h-20 w-20 rounded-full object-cover">
+            </a>
+        </div>
+        
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2 text-center">
+            Consulta de Cuota
+        </h1>
+        <p class="text-gray-500 mb-8 text-center">
+            Ingresa el DNI del Socio para ver su estado y cuota mensual.
+        </p>
+
+        <!-- Campo de Entrada --><div class="mb-6">
+            <label for="socioId" class="block text-sm font-medium text-gray-700 mb-2">
+                DNI del Socio (Ej: 123456789)
+            </label>
+            <input type="text" id="socioId" placeholder="Ingresa tu DNI..."
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition duration-150"
+                   aria-label="Código de Socio">
+        </div>
+
+        <!-- Botón de Consulta --><button id="consultarBtn" onclick="consultarCuota()"
+                class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-200 flex items-center justify-center">
+            <span id="buttonText">Consultar Cuota</span>
+            <div id="loadingSpinner" class="spinner w-5 h-5 border-2 rounded-full border-transparent" hidden></div>
+        </button>
+
+        <!-- Área de Resultados / Mensajes --><div id="resultado" class="mt-8 p-4 bg-white border border-gray-200 rounded-lg shadow-inner transition-all duration-300 transform scale-100 opacity-100" hidden>
+            <!-- El resultado se inyectará aquí --></div>
+    </div>
+
+    <!-- Script de Lógica --><script type="module">
+        // URL de tu Apps Script Web App (Ya la has configurado correctamente)
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzr7TpL_zLfyQLnQujZ95AqAgo60PCgdrAfkK-7B6A_KlEtawPmDLIehmpkgaTDt2Q-/exec'; 
+
+        const input = document.getElementById('socioId');
+        const resultadoDiv = document.getElementById('resultado');
+        const buttonText = document.getElementById('buttonText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const consultarBtn = document.getElementById('consultarBtn');
+
+        /**
+         * Formatea un número como moneda usando el punto (.) como separador de miles
+         * y la coma (,) como separador decimal, siguiendo el estándar 'es-ES'.
+         * @param {number} amount - El monto a formatear.
+         * @returns {string} El monto formateado como string.
+         */
+        function formatCurrency(amount) {
+            if (typeof amount !== 'number' || isNaN(amount) || amount === null) {
+                return 'N/A';
+            }
+            return new Intl.NumberFormat('es-ES', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            }).format(amount);
+        }
+
+        /**
+         * Consulta la cuota mensual llamando al Apps Script desplegado.
+         */
+        async function consultarCuota() {
+            const socioId = input.value.trim().toUpperCase();
+            
+            // 1. Validación de Entrada
+            if (!socioId) {
+                mostrarMensaje(
+                    'Por favor, ingresa tu DNI.', 
+                    'bg-red-100 border-red-400 text-red-700'
+                );
+                return;
+            }
+
+            // Bloquea el botón y muestra el spinner
+            consultarBtn.disabled = true;
+            buttonText.textContent = 'Consultando...';
+            loadingSpinner.hidden = false;
+            resultadoDiv.hidden = true;
+
+            try {
+                // Construir la URL con el ID de socio como parámetro de búsqueda
+                const fullUrl = `${APPS_SCRIPT_URL}?socioId=${encodeURIComponent(socioId)}`;
+
+                const response = await fetch(fullUrl);
+                const data = await response.json();
+
+                if (data.error) {
+                    // Manejar errores como "Socio no encontrado" o error de hoja de cálculo
+                    mostrarMensaje(
+                        data.error.includes("no encontrado") 
+                            ? `El DNI "${socioId}" no fue encontrado.`
+                            : `Error de datos: ${data.error}`,
+                        'bg-yellow-100 border-yellow-400 text-yellow-700'
+                    );
+                } else {
+                    // Socio encontrado, mostrar el resultado
+                    mostrarResultado(data);
+                }
+
+            } catch (error) {
+                console.error("Error al consultar Apps Script:", error);
+                mostrarMensaje(
+                    `Hubo un error de conexión. Asegúrate de que la URL (${APPS_SCRIPT_URL}) es correcta y el script está desplegado.`, 
+                    'bg-red-100 border-red-400 text-red-700'
+                );
+            } finally {
+                // Desbloquea el botón y oculta el spinner
+                consultarBtn.disabled = false;
+                buttonText.textContent = 'Consultar Cuota';
+                loadingSpinner.hidden = true;
+            }
+        }
+
+        /**
+         * Muestra un mensaje de error o advertencia simple.
+         * @param {string} mensaje - El texto a mostrar.
+         * @param {string} clases - Clases de Tailwind para el fondo y texto.
+         */
+        function mostrarMensaje(mensaje, clases) {
+            resultadoDiv.className = `mt-8 p-4 rounded-lg shadow-md ${clases}`;
+            resultadoDiv.innerHTML = `<p class="font-semibold">${mensaje}</p>`;
+            resultadoDiv.hidden = false;
+        }
+
+        /**
+         * Muestra los detalles de la cuota del socio, incluyendo la deuda total.
+         * @param {Object} data - Datos del socio.
+         */
+        function mostrarResultado(data) {
+            // Determina la clase de color para la deuda
+            const deudaColorClass = (data.deudaTotal && data.deudaTotal > 0) ? 'text-red-600 font-extrabold' : 'text-green-600 font-bold';
+
+            resultadoDiv.className = `mt-8 p-6 bg-white border border-secondary rounded-xl shadow-lg`;
+            resultadoDiv.innerHTML = `
+                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                    <h2 class="text-xl font-bold text-gray-800">${data.nombre}</h2>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${data.estadoColor} ${data.estadoBg}">
+                        ${data.estado}
+                    </span>
+                </div>
+                
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-gray-600">
+                        <span class="font-medium">DNI Consultado:</span>
+                        <span class="text-gray-900">${input.value.trim().toUpperCase()}</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center text-gray-600 border-t pt-3 border-gray-100">
+                        <span class="font-medium">Cuota Mensual:</span>
+                        <span class="text-2xl font-extrabold text-primary">
+                            $${formatCurrency(data.cuota)}
+                        </span>
+                    </div>
+                    
+                    <!-- CAMPO DEUDA TOTAL ACTUAL CON FORMATO -->
+                    <div class="flex justify-between items-center text-gray-600 pb-2">
+                        <span class="font-medium">Deuda Total Actual:</span>
+                        <span class="text-xl ${deudaColorClass}">
+                            $${formatCurrency(data.deudaTotal || 0)}
+                        </span>
+                    </div>
+                    
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-500 text-center">
+                    <p>Para más detalles o realizar pagos, contacta a la administración.</p>
+                </div>
+            `;
+            resultadoDiv.hidden = false;
+        }
+
+        // Permitir consultar al presionar Enter en el campo de texto
+        input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                consultarCuota();
+            }
+        });
+
+        // Exponer la función globalmente para el onclick del botón
+        window.consultarCuota = consultarCuota;
+    </script>
+</body>
+</html>
