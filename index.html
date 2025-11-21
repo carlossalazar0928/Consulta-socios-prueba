@@ -77,7 +77,7 @@
 
     <!-- Script de Lógica --><script type="module">
         // URL de tu Apps Script Web App (Asegúrate de que el despliegue es el correcto)
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOUBjpPfzMX4gwLEXO8nroemrh006HgX3QKiiOgeknzlxvFYAaU-leB8aTVEDnNyI1/exec'; 
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPaYQH7W8l_9Tcf7RV6NsshU2AWdEQg6qaDHOo7lFRQ70OVZnmofgHQ29pT5dqS8CI/exec'; 
 
         const input = document.getElementById('socioId');
         const resultadoDiv = document.getElementById('resultado');
@@ -169,9 +169,18 @@
 
         /**
          * Muestra los detalles de todos los registros encontrados para el socio.
-         * @param {Object} data - Datos del socio: { nombre: string, records: Array<Object> }.
+         * @param {Object} data - Datos consolidados: 
+         * { 
+         * nombreSocioConsulta: string, 
+         * idSocioConsulta: string, 
+         * jefe: string, 
+         * records: Array<Object> 
+         * }.
          */
         function mostrarResultado(data) {
+            
+            // Utilizamos el ID de socio como fallback si el nombre es undefined
+            const nombreSocioDisplay = data.nombreSocioConsulta || data.idSocioConsulta;
             
             // 1. Generar el HTML para cada registro (tarjeta)
             const recordsHtml = data.records.map(record => `
@@ -182,6 +191,11 @@
                         </span>
                         <span class="text-sm font-semibold text-gray-700">Período: ${record.periodo}</span>
                     </div>
+
+                    <!-- NUEVA LÍNEA: Mostrar a qué socio (miembro de la familia) pertenece este concepto -->
+                    <p class="text-xs text-gray-500 mb-2 border-b border-gray-100 pb-1">
+                        Aplica a: <span class="font-semibold text-gray-700">${record.nombre}</span> (Socio Nº: ${record.socioId})
+                    </p>
                     
                     <div class="text-2xl font-extrabold text-primary mb-1">
                         $${formatCurrency(record.importe)}
@@ -197,11 +211,21 @@
             resultadoDiv.className = `mt-8 p-6 bg-white border border-secondary rounded-xl shadow-lg`;
             resultadoDiv.innerHTML = `
                 <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                    <h2 class="text-xl font-bold text-gray-800">${data.nombre}</h2>
-                    <span class="text-sm font-medium text-gray-500">Nº Socio: ${input.value.trim().toUpperCase()}</span>
+                    <h2 class="text-xl font-bold text-gray-800">Socio: ${nombreSocioDisplay}</h2>
+                    <span class="text-sm font-medium text-gray-500">Nº Socio: ${data.idSocioConsulta}</span>
                 </div>
                 
-                <h3 class="text-lg font-bold text-gray-700 mb-4">${data.records.length} Conceptos encontrados:</h3>
+                <!-- Información del Jefe de Familia -->
+                <div class="mb-4 p-3 bg-blue-50 rounded-lg text-center shadow-inner">
+                    <p class="text-sm font-semibold text-blue-700">
+                        Jefe de Familia (Titular): <span class="font-extrabold">${data.jefe}</span>
+                    </p>
+                    <p class="text-xs text-blue-600 mt-1 font-medium">
+                        (Mostrando TODOS los ${data.records.length} conceptos relacionados con la familia del titular)
+                    </p>
+                </div>
+                
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Conceptos encontrados:</h3>
                 
                 <!-- Contenedor para la lista de registros con scroll para listas largas -->
                 <div class="space-y-4 max-h-96 overflow-y-auto pr-2">
